@@ -1,7 +1,7 @@
 package httpd
 
 type Config struct {
-    Enabled     bool
-    BindAddress string
-    Url         string
+	Enabled     bool
+	BindAddress string
+	Url         string
 }

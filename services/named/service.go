@@ -11,8 +11,8 @@ import (
 	"math/rand"
 	"sync/atomic"
 
+	"github.com/dayuwuxian/aws-meta-server/services/aws"
 	"github.com/miekg/dns"
-	"github.com/page31/aws-meta-server/services/aws"
 )
 
 var (

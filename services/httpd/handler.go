@@ -11,7 +11,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/page31/aws-meta-server/services/aws"
+	"github.com/dayuwuxian/aws-meta-server/services/aws"
 )
 
 type route struct {

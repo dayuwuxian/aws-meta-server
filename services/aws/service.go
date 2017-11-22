@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"path/filepath"
 
 	"time"
 
@@ -16,6 +17,7 @@ import (
 type Service struct {
 	Config       *Config
 	logger       *log.Logger
+	awsSession   *session.Session
 	awsConfig    *aws.Config
 	updateTicker *time.Ticker
 	ec2Instances []*EC2Instance
@@ -36,19 +38,42 @@ var (
 )
 
 func NewService(c Config) *Service {
-
-	awsConfig := aws.NewConfig().WithRegion(c.Region)
+	var credentialsProviders []credentials.Provider
+	var creds *credentials.Credentials
+	creds = nil
 	if c.AccessKeyID != "" && c.SecretAccessKey != "" {
-		awsConfig = awsConfig.WithCredentials(
-			credentials.NewStaticCredentials(c.AccessKeyID, c.SecretAccessKey, ""))
+		credentialsProviders = append(credentialsProviders, &credentials.StaticProvider{
+			Value: credentials.Value{
+				AccessKeyID:     c.AccessKeyID,
+				SecretAccessKey: c.SecretAccessKey,
+			},
+		})
+		credentialsProviders = append(credentialsProviders,
+			&credentials.SharedCredentialsProvider{
+				Filename: filepath.Join(userHomeDir(), ".aws", "credentials"),
+				Profile:  "default",
+			})
+		creds = credentials.NewChainCredentials(credentialsProviders)
 	}
-
+	awsConfig := &aws.Config{
+		Credentials: creds,
+		Region:      aws.String(c.Region),
+	}
 	s := &Service{
-		Config:    &c,
-		logger:    log.New(os.Stderr, "[aws] ", log.LstdFlags),
-		awsConfig: awsConfig,
+		Config:     &c,
+		logger:     log.New(os.Stderr, "[aws] ", log.LstdFlags),
+		awsSession: session.Must(session.NewSession(awsConfig)),
+		awsConfig:  awsConfig,
 	}
 	return s
+}
+
+func userHomeDir() string {
+	homeDir := os.Getenv("HOME")
+	if len(homeDir) == 0 {
+		homeDir = os.Getenv("USERPROFILE")
+	}
+	return homeDir
 }
 
 func (s *Service) Open() error {
@@ -99,7 +124,7 @@ func (s *Service) GetEC2NameFromIP(ip string) (error, string) {
 }
 
 func (s *Service) UpdateCache() error {
-	ec2 := ec2.New(session.New(s.awsConfig))
+	ec2 := ec2.New(s.awsSession)
 	resp, err := ec2.DescribeInstances(nil)
 	if err != nil {
 		return err
